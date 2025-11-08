@@ -3,6 +3,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import os
+import random
 from datetime import datetime
 
 # Set page configuration
@@ -65,43 +66,41 @@ st.markdown("""
 
 class InsurancePredictor:
     def __init__(self):
-        self.feature_names = ['Age', 'Sex', 'BMI', 'Children', 'Smoker', 'Region']
-
         self.feature_info = {
-            'Age': {
+            'age': {
                 'desc': 'Age of the primary beneficiary',
                 'type': 'number',
-                'min': 1, 'max': 150, 'step': 1,
+                'min': 18, 'max': 80, 'step': 1,
                 'default': 35,
-                'normal_range': (1, 150)
+                'normal_range': (18, 80)
             },
-            'Sex': {
+            'sex': {
                 'desc': 'Gender of the beneficiary',
                 'type': 'select',
                 'options': {'0': 'Female', '1': 'Male'},
                 'default': 0
             },
-            'BMI': {
+            'bmi': {
                 'desc': 'Body Mass Index',
                 'type': 'number',
                 'min': 15.0, 'max': 50.0, 'step': 0.1,
                 'default': 25.0,
                 'normal_range': (18.5, 24.9)
             },
-            'Children': {
+            'children': {
                 'desc': 'Number of children covered by health insurance',
                 'type': 'number',
-                'min': 0, 'max': 15, 'step': 1,
+                'min': 0, 'max': 10, 'step': 1,
                 'default': 1,
-                'normal_range': (0, 5)
+                'normal_range': (0, 10)
             },
-            'Smoker': {
+            'smoker': {
                 'desc': 'Smoking status',
                 'type': 'select',
                 'options': {'0': 'No', '1': 'Yes'},
                 'default': 0
             },
-            'Region': {
+            'region': {
                 'desc': 'Residential area in the US',
                 'type': 'select',
                 'options': {
@@ -173,7 +172,6 @@ class InsurancePredictor:
         )
 
         # Add random variation (real-world factor)
-        import random
         variation = random.uniform(0.9, 1.1)  # ±10% variation
         total_cost *= variation
 
@@ -250,21 +248,15 @@ def create_sidebar():
 
 
 def create_feature_input(feature, info):
-    """Create input for a single feature - FIXED VERSION"""
+    """Create input for a single feature"""
     with st.container():
         if info['type'] == 'number':
-            # Ensure all numeric values are the same type (float)
-            min_val = float(info['min'])
-            max_val = float(info['max'])
-            step_val = float(info['step'])
-            default_val = float(info['default'])
-
             value = st.number_input(
                 label=f"**{feature.upper()}**",
-                min_value=min_val,
-                max_value=max_val,
-                value=default_val,
-                step=step_val,
+                min_value=float(info['min']),
+                max_value=float(info['max']),
+                value=float(info['default']),
+                step=float(info['step']),
                 help=info['desc']
             )
         elif info['type'] == 'select':
@@ -516,7 +508,11 @@ def save_prediction(input_data, results):
         os.makedirs('data', exist_ok=True)
 
         file_path = 'data/insurance_predictions.csv'
-        df.to_csv(file_path, mode='a', header=not os.path.exists(file_path), index=False)
+
+        # Check if file exists to determine header
+        header = not os.path.exists(file_path)
+
+        df.to_csv(file_path, mode='a', header=header, index=False)
 
         st.success("✅ Insurance quote saved to records!")
 
@@ -526,40 +522,44 @@ def save_prediction(input_data, results):
 
 def main():
     """Main application function"""
+    try:
+        # Initialize predictor
+        predictor = InsurancePredictor()
 
-    # Initialize predictor
-    predictor = InsurancePredictor()
+        # Create sidebar
+        create_sidebar()
 
-    # Create sidebar
-    create_sidebar()
+        # Welcome message
+        st.success("🚀 **Advanced Insurance Underwriting System Ready**")
 
-    # Welcome message
-    st.success("🚀 **Advanced Insurance Underwriting System Ready**")
+        # Create input form and get data
+        input_data = create_input_form(predictor)
 
-    # Create input form and get data
-    input_data = create_input_form(predictor)
+        # Prediction button
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            predict_clicked = st.button(
+                "💰 GET INSURANCE QUOTE",
+                type="primary",
+                use_container_width=True,
+                help="Click to calculate your annual insurance premium"
+            )
 
-    # Prediction button
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        predict_clicked = st.button(
-            "💰 GET INSURANCE QUOTE",
-            type="primary",
-            use_container_width=True,
-            help="Click to calculate your annual insurance premium"
-        )
+        if predict_clicked:
+            with st.spinner("🔍 Analyzing risk factors and calculating premium..."):
+                import time
+                time.sleep(1)  # Simulate processing time
 
-    if predict_clicked:
-        with st.spinner("🔍 Analyzing risk factors and calculating premium..."):
-            import time
-            time.sleep(1)  # Simulate processing time
+                results = predictor.predict(input_data)
+                display_results(results, input_data, predictor)
 
-            results = predictor.predict(input_data)
-            display_results(results, input_data, predictor)
+                # Save prediction
+                if st.button("💾 Save This Quote", use_container_width=True):
+                    save_prediction(input_data, results)
 
-            # Save prediction
-            if st.button("💾 Save This Quote", use_container_width=True):
-                save_prediction(input_data, results)
+    except Exception as e:
+        st.error(f"Application error: {str(e)}")
+        st.info("Please refresh the page and try again.")
 
 
 # Run the application
